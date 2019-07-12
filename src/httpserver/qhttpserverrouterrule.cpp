@@ -37,6 +37,8 @@
 #include <QtCore/qregularexpression.h>
 #include <QtCore/qdebug.h>
 
+#include <QtCore/qstringbuilder.h>
+
 QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcRouterRule, "qt.httpserver.router.rule")
