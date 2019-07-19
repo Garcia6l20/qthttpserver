@@ -57,7 +57,7 @@ QT_BEGIN_NAMESPACE
 class QHttpServerRequestPrivate : public QSharedData
 {
 public:
-    QHttpServerRequestPrivate(const QHostAddress &remoteAddress);
+    QHttpServerRequestPrivate(const QHostAddress &remoteAddress, const QHttpServerRequest::Options &options);
 
     quint16 port = 0;
     enum class State {
@@ -68,7 +68,9 @@ public:
         OnHeaders,
         OnHeadersComplete,
         OnBody,
+        OnChunkBody,
         OnMessageComplete,
+        OnChunkMessageComplete,
         OnChunkHeader,
         OnChunkComplete
     } state = State::NotStarted;
@@ -88,6 +90,9 @@ public:
 
     void clear();
     QHostAddress remoteAddress;
+    QHttpServerRequest::Options options;
+
+    std::function<void()> chunkBodyHandler;
 
 private:
     static http_parser_settings httpParserSettings;

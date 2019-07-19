@@ -81,12 +81,29 @@ public:
     Q_DECLARE_FLAGS(Methods, Method)
     Q_FLAG(Methods)
 
+    enum Option {
+        NoneOption          = 0x0000,
+        NoChunkHandling     = 0x0001,
+    };
+    Q_ENUM(Option)
+    Q_DECLARE_FLAGS(Options, Option)
+    Q_FLAG(Options)
+
+    enum BodyType {
+        Undefined,
+        Complete,
+        Chunk,
+        LastChunk
+    };
+    Q_ENUM(BodyType)
+
     QByteArray value(const QByteArray &key) const;
     QUrl url() const;
     QUrlQuery query() const;
     Method method() const;
     QVariantMap headers() const;
     QByteArray body() const;
+    BodyType bodyType() const;
     QHostAddress remoteAddress() const;
 
 protected:
@@ -96,8 +113,7 @@ private:
 #if !defined(QT_NO_DEBUG_STREAM)
     friend Q_HTTPSERVER_EXPORT QDebug operator<<(QDebug debug, const QHttpServerRequest &request);
 #endif
-
-    explicit QHttpServerRequest(const QHostAddress &remoteAddress);
+    explicit QHttpServerRequest(const QHostAddress &remoteAddress, const Options &options);
 
     QHttpServerRequestPrivate *d = nullptr;
 };

@@ -70,6 +70,8 @@ public:
     void handleNewConnections();
     void handleReadyRead(QTcpSocket *socket,
                          QHttpServerRequest *request);
+
+    QHttpServerRequest::Options requestsOptions;
 };
 
 QT_END_NAMESPACE

@@ -33,12 +33,12 @@
 #include <QtCore/qobject.h>
 
 #include <QtHttpServer/qthttpserverglobal.h>
+#include <QtHttpServer/qhttpserverrequest.h>
 
 #include <QtNetwork/qhostaddress.h>
 
 QT_BEGIN_NAMESPACE
 
-class QHttpServerRequest;
 class QHttpServerResponder;
 class QTcpServer;
 class QTcpSocket;
@@ -56,6 +56,8 @@ public:
 
     void bind(QTcpServer *server = nullptr);
     QVector<QTcpServer *> servers() const;
+
+    void setRequestsOptions(const QHttpServerRequest::Options &options);
 
 Q_SIGNALS:
     void missingHandler(const QHttpServerRequest &request, QTcpSocket *socket);

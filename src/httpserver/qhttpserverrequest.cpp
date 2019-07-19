@@ -78,8 +78,9 @@ http_parser_settings QHttpServerRequestPrivate::httpParserSettings {
     &QHttpServerRequestPrivate::onChunkComplete
 };
 
-QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteAddress)
-    : remoteAddress(remoteAddress)
+QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteAddress, const QHttpServerRequest::Options &options)
+    : remoteAddress(remoteAddress),
+      options(options)
 {
     httpParser.data = this;
 }
@@ -105,7 +106,7 @@ bool QHttpServerRequestPrivate::parse(QIODevice *socket)
                                                 fragment.constData(),
                                                 size_t(fragment.size()));
         if (int(parsed) < fragment.size()) {
-            qCDebug(lc, "Parse error: %d", httpParser.http_errno);
+            qCDebug(lc, "Parse error: %s", http_errno_description(static_cast<http_errno>(httpParser.http_errno)));
             return false;
         }
     }
@@ -166,9 +167,9 @@ int QHttpServerRequestPrivate::onMessageBegin(http_parser *httpParser)
 int QHttpServerRequestPrivate::onUrl(http_parser *httpParser, const char *at, size_t length)
 {
     qCDebug(lc) << httpParser << QString::fromUtf8(at, int(length));
-    auto instance = static_cast<QHttpServerRequestPrivate *>(httpParser->data);
-    instance->state = State::OnUrl;
-    parseUrl(at, length, false, &instance->url);
+    auto i = instance(httpParser);
+    i->state = State::OnUrl;
+    parseUrl(at, length, false, &i->url);
     return 0;
 }
 
@@ -217,21 +218,33 @@ int QHttpServerRequestPrivate::onBody(http_parser *httpParser, const char *at, s
 {
     qCDebug(lc) << httpParser << QString::fromUtf8(at, int(length));
     auto i = instance(httpParser);
-    i->state = State::OnBody;
-    if (i->body.isEmpty()) {
-        i->body.reserve(
-                static_cast<int>(httpParser->content_length) +
-                static_cast<int>(length));
+    if (i->state == State::OnChunkHeader &&
+        i->options.testFlag(QHttpServerRequest::NoChunkHandling)) {
+        i->state = State::OnChunkBody;
+        i->body.setRawData(at, uint(length)); // no allocation required
+        i->chunkBodyHandler();
+    } else {
+        i->state = State::OnBody;
+        if (i->body.isEmpty()) {
+            i->body.reserve(
+                    static_cast<int>(httpParser->content_length) +
+                    static_cast<int>(length));
+        }
+        i->body.append(at, int(length));
     }
-
-    i->body.append(at, int(length));
     return 0;
 }
 
 int QHttpServerRequestPrivate::onMessageComplete(http_parser *httpParser)
 {
     qCDebug(lc) << httpParser;
-    instance(httpParser)->state = State::OnMessageComplete;
+    auto i = instance(httpParser);
+    if (i->state == State::OnChunkComplete &&
+        i->options.testFlag(QHttpServerRequest::NoChunkHandling)) {
+        instance(httpParser)->state = State::OnChunkMessageComplete;
+    } else {
+        instance(httpParser)->state = State::OnMessageComplete;
+    }
     return 0;
 }
 
@@ -249,8 +262,8 @@ int QHttpServerRequestPrivate::onChunkComplete(http_parser *httpParser)
     return 0;
 }
 
-QHttpServerRequest::QHttpServerRequest(const QHostAddress &remoteAddress) :
-    d(new QHttpServerRequestPrivate(remoteAddress))
+QHttpServerRequest::QHttpServerRequest(const QHostAddress &remoteAddress, const Options& options) :
+    d(new QHttpServerRequestPrivate(remoteAddress, options))
 {}
 
 QHttpServerRequest::QHttpServerRequest(const QHttpServerRequest &other) :
@@ -308,6 +321,20 @@ QVariantMap QHttpServerRequest::headers() const
 QByteArray QHttpServerRequest::body() const
 {
     return d->body;
+}
+
+QHttpServerRequest::BodyType QHttpServerRequest::bodyType() const
+{
+    switch (d->state) {
+    case QHttpServerRequestPrivate::State::OnChunkBody:
+        return Chunk;
+    case QHttpServerRequestPrivate::State::OnChunkMessageComplete:
+        return LastChunk;
+    case QHttpServerRequestPrivate::State::OnMessageComplete:
+        return Complete;
+    default:
+        return Undefined;
+    }
 }
 
 QHostAddress QHttpServerRequest::remoteAddress() const

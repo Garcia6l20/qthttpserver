@@ -42,6 +42,7 @@
 #include "http_parser.h"
 
 #include <algorithm>
+#include <functional>
 
 QT_BEGIN_NAMESPACE
 
@@ -57,7 +58,7 @@ void QAbstractHttpServerPrivate::handleNewConnections()
     auto tcpServer = qobject_cast<QTcpServer *>(q->sender());
     Q_ASSERT(tcpServer);
     while (auto socket = tcpServer->nextPendingConnection()) {
-        auto request = new QHttpServerRequest(socket->peerAddress());  // TODO own tcp server could pre-allocate it
+        auto request = new QHttpServerRequest(socket->peerAddress(), requestsOptions);  // TODO own tcp server could pre-allocate it
         http_parser_init(&request->d->httpParser, HTTP_REQUEST);
 
         QObject::connect(socket, &QTcpSocket::readyRead, q_ptr,
@@ -85,14 +86,25 @@ void QAbstractHttpServerPrivate::handleReadyRead(QTcpSocket *socket,
     if (request->d->state == QHttpServerRequestPrivate::State::OnMessageComplete)
         request->d->clear();
 
+    if (request->d->options.testFlag(QHttpServerRequest::NoChunkHandling)) {
+        request->d->chunkBodyHandler = [request, socket, q]() {
+            if (!q->handleRequest(*request, socket))
+                Q_EMIT q->missingHandler(*request, socket);
+        };
+    }
+
     if (!request->d->parse(socket)) {
         socket->disconnect();
         return;
     }
 
+    request->d->chunkBodyHandler = nullptr;
+
     if (!request->d->httpParser.upgrade &&
-            request->d->state != QHttpServerRequestPrivate::State::OnMessageComplete)
+        request->d->state != QHttpServerRequestPrivate::State::OnMessageComplete &&
+        request->d->state != QHttpServerRequestPrivate::State::OnChunkMessageComplete) {
         return; // Partial read
+    }
 
     if (request->d->httpParser.upgrade) { // Upgrade
         const auto &headers = request->d->headers;
@@ -205,6 +217,14 @@ void QAbstractHttpServer::bind(QTcpServer *server)
 QVector<QTcpServer *> QAbstractHttpServer::servers() const
 {
     return findChildren<QTcpServer *>().toVector();
+}
+
+/*!
+    Set options of this HTTP server.
+ */
+void QAbstractHttpServer::setRequestsOptions(const QHttpServerRequest::Options &options) {
+    Q_D(QAbstractHttpServer);
+    d->requestsOptions = options;
 }
 
 #if defined(QT_WEBSOCKETS_LIB)
