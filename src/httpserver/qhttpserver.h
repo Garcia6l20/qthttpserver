@@ -44,7 +44,7 @@ class QTcpSocket;
 class QHttpServerRequest;
 
 class QHttpServerPrivate;
-class Q_HTTPSERVER_EXPORT QHttpServer final : public QAbstractHttpServer
+class Q_HTTPSERVER_EXPORT QHttpServer : public QAbstractHttpServer
 {
     Q_OBJECT
     Q_DECLARE_PRIVATE(QHttpServer)
@@ -59,7 +59,7 @@ class Q_HTTPSERVER_EXPORT QHttpServer final : public QAbstractHttpServer
 
 public:
     explicit QHttpServer(QObject *parent = nullptr);
-    ~QHttpServer();
+    virtual ~QHttpServer() Q_DECL_OVERRIDE;
 
     QHttpServerRouter *router();
 
