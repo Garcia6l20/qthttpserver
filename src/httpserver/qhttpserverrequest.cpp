@@ -223,6 +223,7 @@ int QHttpServerRequestPrivate::onBody(http_parser *httpParser, const char *at, s
         i->state = State::OnChunkBody;
         i->body.setRawData(at, uint(length)); // no allocation required
         i->chunkBodyHandler();
+        i->body.clear();
     } else {
         i->state = State::OnBody;
         if (i->body.isEmpty()) {
