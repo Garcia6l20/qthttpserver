@@ -223,7 +223,10 @@ bool QHttpServerRouterRule::matches(const QHttpServerRequest &request,
     return (match->hasMatch() && d->pathRegexp.captureCount() == match->lastCapturedIndex());
 }
 
-QIODevice* QHttpServerRouterRule::createBodyDevice(const QRegularExpressionMatch& /*match*/) {
+/*!
+    This virtual function is called by QHttpServer::createBodyDevice to get the device associated to this rule.
+ */
+QIODevice* QHttpServerRouterRule::createBodyDevice(const QHttpServerRequest &/*request*/, const QRegularExpressionMatch &/*match*/) {
     return new QBuffer();
 }
 
