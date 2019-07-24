@@ -41,5 +41,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     src/3rdparty/http-parser
 )
 add_library(Qt5::HttpServer ALIAS ${PROJECT_NAME})
+
+# emulate qt folders
 execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${PROJECT_SOURCE_DIR}/src/httpserver ${PROJECT_BINARY_DIR}/QtHttpServer)
 execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${PROJECT_SOURCE_DIR}/src/httpserver ${PROJECT_BINARY_DIR}/private)
+
+add_subdirectory(tests)
