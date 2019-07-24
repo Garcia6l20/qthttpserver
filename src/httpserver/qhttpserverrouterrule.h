@@ -76,6 +76,8 @@ protected:
     virtual bool matches(const QHttpServerRequest &request,
                          QRegularExpressionMatch *match) const;
 
+    virtual QIODevice* createBodyDevice(const QRegularExpressionMatch& match);
+
     QHttpServerRouterRule(QHttpServerRouterRulePrivate *d);
 
 private:

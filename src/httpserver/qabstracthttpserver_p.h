@@ -58,7 +58,7 @@ class Q_HTTPSERVER_EXPORT QAbstractHttpServerPrivate: public QObjectPrivate
     Q_DECLARE_PUBLIC(QAbstractHttpServer)
 
 public:
-    QAbstractHttpServerPrivate();
+    QAbstractHttpServerPrivate(QAbstractHttpServer* server);
 
 #if defined(QT_WEBSOCKETS_LIB)
     QWebSocketServer websocketServer {
@@ -75,6 +75,9 @@ public:
     QSslConfiguration sslConfiguration;
     bool sslEnabled = false;
 #endif
+
+private:
+    QAbstractHttpServer * server;
 };
 
 QT_END_NAMESPACE
