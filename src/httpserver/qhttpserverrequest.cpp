@@ -32,6 +32,7 @@
 #include <QtHttpServer/qabstracthttpserver.h>
 #include <QtHttpServer/qhttpserverrequest.h>
 
+#include <QtCore/qdatastream.h>
 #include <QtCore/qdebug.h>
 #include <QtCore/qloggingcategory.h>
 #include <QtNetwork/qtcpsocket.h>
@@ -89,7 +90,7 @@ QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteA
 }
 
 QHttpServerRequestPrivate::~QHttpServerRequestPrivate() {
-    if (bodyDevice) {
+    if (bodyDevice != nullptr) {
         if (bodyDevice->isOpen()) {
             bodyDevice->close();
         }
@@ -242,7 +243,9 @@ int QHttpServerRequestPrivate::onBody(http_parser *httpParser, const char *at, s
     if (!i->bodyDevice->isOpen()) {
         i->bodyDevice->open(QIODevice::ReadWrite);
     }
-    i->bodyDevice->write(at, static_cast<qint64>(length));
+    if(i->bodyDevice->write(at, static_cast<qint64>(length)) < 0) {
+        qCCritical(lc, "Failed to write data on body device");
+    }
     return 0;
 }
 
@@ -250,10 +253,6 @@ int QHttpServerRequestPrivate::onMessageComplete(http_parser *httpParser)
 {
     qCDebug(lc) << httpParser;
     auto i = instance(httpParser);
-    if (i->bodyDevice != nullptr &&
-        i->bodyDevice->isOpen()) {
-        i->bodyDevice->close();
-    }
     i->state = State::OnMessageComplete;
     return 0;
 }
@@ -336,7 +335,19 @@ QIODevice* QHttpServerRequest::bodyDevice() const
 
 QByteArray QHttpServerRequest::body() const
 {
-    return d->bodyDevice->readAll();
+    if (d->bodyDevice == nullptr) {
+        qCWarning(lc, "No body device, maybe no body have been received...");
+        return QByteArray();
+    } else if (!d->bodyDevice->isReadable()) {
+        qCWarning(lc, "Body device is not readable...");
+        return QByteArray();
+    } else {
+        qint64 pos = d->bodyDevice->pos();
+        d->bodyDevice->seek(0);
+        QByteArray&& result = d->bodyDevice->readAll();
+        d->bodyDevice->seek(pos); // back to current pos
+        return std::move(result);
+    }
 }
 
 QHostAddress QHttpServerRequest::remoteAddress() const
