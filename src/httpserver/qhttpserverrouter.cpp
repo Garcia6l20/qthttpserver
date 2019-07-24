@@ -309,4 +309,17 @@ bool QHttpServerRouter::handleRequest(const QHttpServerRequest &request,
     return false;
 }
 
+QIODevice* QHttpServerRouter::createBodyDevice(const QHttpServerRequest &request) {
+    Q_D(const QHttpServerRouter);
+    for (const auto &rule : qAsConst(d->rules)) {
+        QRegularExpressionMatch match;
+        if (!rule->matches(request, &match))
+            continue;
+        QIODevice * device = rule->createBodyDevice(match);
+        if (device != nullptr)
+            return device;
+    }
+    return nullptr;
+}
+
 QT_END_NAMESPACE

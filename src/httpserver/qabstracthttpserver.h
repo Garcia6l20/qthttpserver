@@ -75,8 +75,11 @@ protected:
     static QHttpServerResponder makeResponder(const QHttpServerRequest &request,
                                               QTcpSocket *socket);
 
+    virtual QIODevice* createBodyDevice(const QHttpServerRequest& request);
+
 private:
     Q_DECLARE_PRIVATE(QAbstractHttpServer)
+    friend class QHttpServerRequestPrivate;
 };
 
 QT_END_NAMESPACE
