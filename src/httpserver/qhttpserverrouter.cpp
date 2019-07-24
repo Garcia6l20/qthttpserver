@@ -315,7 +315,7 @@ QIODevice* QHttpServerRouter::createBodyDevice(const QHttpServerRequest &request
         QRegularExpressionMatch match;
         if (!rule->matches(request, &match))
             continue;
-        QIODevice * device = rule->createBodyDevice(match);
+        QIODevice * device = rule->createBodyDevice(request, match);
         if (device != nullptr)
             return device;
     }
