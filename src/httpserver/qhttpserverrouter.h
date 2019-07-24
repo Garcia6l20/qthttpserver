@@ -32,10 +32,12 @@
 
 #include <QtHttpServer/qthttpserverglobal.h>
 #include <QtHttpServer/qhttpserverrouterviewtraits.h>
+#include <QtHttpServer/qhttpserverrouterrule.h>
 
 #include <QtCore/qscopedpointer.h>
 #include <QtCore/qmetatype.h>
 #include <QtCore/qregularexpression.h>
+#include <QtCore/qbuffer.h>
 
 #include <functional>
 #include <initializer_list>
@@ -113,6 +115,8 @@ public:
 
     bool handleRequest(const QHttpServerRequest &request,
                        QTcpSocket *socket) const;
+
+    QIODevice* createBodyDevice(const QHttpServerRequest &request);
 
 private:
     template<typename ViewTraits, int ... Idx>

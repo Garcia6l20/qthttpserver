@@ -45,6 +45,8 @@ class QString;
 class QTcpSocket;
 
 class QHttpServerRequestPrivate;
+class QAbstractHttpServer;
+
 class Q_HTTPSERVER_EXPORT QHttpServerRequest
 {
     friend class QAbstractHttpServerPrivate;
@@ -86,6 +88,7 @@ public:
     QUrlQuery query() const;
     Method method() const;
     QVariantMap headers() const;
+    QIODevice* bodyDevice() const;
     QByteArray body() const;
     QHostAddress remoteAddress() const;
 
@@ -97,7 +100,7 @@ private:
     friend Q_HTTPSERVER_EXPORT QDebug operator<<(QDebug debug, const QHttpServerRequest &request);
 #endif
 
-    explicit QHttpServerRequest(const QHostAddress &remoteAddress);
+    explicit QHttpServerRequest(const QHostAddress &remoteAddress, QAbstractHttpServer* server);
 
     QSharedDataPointer<QHttpServerRequestPrivate> d;
 };

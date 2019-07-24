@@ -54,10 +54,13 @@
 
 QT_BEGIN_NAMESPACE
 
+class QAbstractHttpServer;
+
 class QHttpServerRequestPrivate : public QSharedData
 {
 public:
-    QHttpServerRequestPrivate(const QHostAddress &remoteAddress);
+    QHttpServerRequestPrivate(const QHostAddress &remoteAddress, QAbstractHttpServer* server, QHttpServerRequest* request);
+    ~QHttpServerRequestPrivate();
 
     quint16 port = 0;
     enum class State {
@@ -72,7 +75,7 @@ public:
         OnChunkHeader,
         OnChunkComplete
     } state = State::NotStarted;
-    QByteArray body;
+    QIODevice* bodyDevice;
 
     QUrl url;
 
@@ -90,6 +93,9 @@ public:
     QHostAddress remoteAddress;
 
 private:
+    QAbstractHttpServer* server;
+    QHttpServerRequest* request;
+
     static http_parser_settings httpParserSettings;
     static bool parseUrl(const char *at, size_t length, bool connect, QUrl *url);
 

@@ -29,6 +29,7 @@
 
 #include "qhttpserverrequest_p.h"
 
+#include <QtHttpServer/qabstracthttpserver.h>
 #include <QtHttpServer/qhttpserverrequest.h>
 
 #include <QtCore/qdebug.h>
@@ -78,10 +79,22 @@ http_parser_settings QHttpServerRequestPrivate::httpParserSettings {
     &QHttpServerRequestPrivate::onChunkComplete
 };
 
-QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteAddress)
-    : remoteAddress(remoteAddress)
+QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteAddress, QAbstractHttpServer* server, QHttpServerRequest* request)
+    : bodyDevice(nullptr),
+      remoteAddress(remoteAddress),
+      server(server),
+      request(request)
 {
     httpParser.data = this;
+}
+
+QHttpServerRequestPrivate::~QHttpServerRequestPrivate() {
+    if (bodyDevice) {
+        if (bodyDevice->isOpen()) {
+            bodyDevice->close();
+        }
+        bodyDevice->deleteLater();
+    }
 }
 
 QByteArray QHttpServerRequestPrivate::header(const QByteArray &key) const
@@ -122,7 +135,9 @@ void QHttpServerRequestPrivate::clear()
     url.clear();
     lastHeader.clear();
     headers.clear();
-    body.clear();
+    if (bodyDevice && bodyDevice->isOpen()) {
+        bodyDevice->close();
+    }
 }
 
 bool QHttpServerRequestPrivate::parseUrl(const char *at, size_t length, bool connect, QUrl *url)
@@ -218,20 +233,28 @@ int QHttpServerRequestPrivate::onBody(http_parser *httpParser, const char *at, s
     qCDebug(lc) << httpParser << QString::fromUtf8(at, int(length));
     auto i = instance(httpParser);
     i->state = State::OnBody;
-    if (i->body.isEmpty()) {
-        i->body.reserve(
-                static_cast<int>(httpParser->content_length) +
-                static_cast<int>(length));
+    if (i->bodyDevice == nullptr) {
+        i->bodyDevice = i->server->createBodyDevice(*i->request);
+        if (i->bodyDevice == nullptr) {
+            return -1;
+        }
     }
-
-    i->body.append(at, int(length));
+    if (!i->bodyDevice->isOpen()) {
+        i->bodyDevice->open(QIODevice::ReadWrite);
+    }
+    i->bodyDevice->write(at, static_cast<qint64>(length));
     return 0;
 }
 
 int QHttpServerRequestPrivate::onMessageComplete(http_parser *httpParser)
 {
     qCDebug(lc) << httpParser;
-    instance(httpParser)->state = State::OnMessageComplete;
+    auto i = instance(httpParser);
+    if (i->bodyDevice != nullptr &&
+        i->bodyDevice->isOpen()) {
+        i->bodyDevice->close();
+    }
+    i->state = State::OnMessageComplete;
     return 0;
 }
 
@@ -249,8 +272,8 @@ int QHttpServerRequestPrivate::onChunkComplete(http_parser *httpParser)
     return 0;
 }
 
-QHttpServerRequest::QHttpServerRequest(const QHostAddress &remoteAddress) :
-    d(new QHttpServerRequestPrivate(remoteAddress))
+QHttpServerRequest::QHttpServerRequest(const QHostAddress &remoteAddress, QAbstractHttpServer* server) :
+    d(new QHttpServerRequestPrivate(remoteAddress, server, this))
 {}
 
 QHttpServerRequest::QHttpServerRequest(const QHttpServerRequest &other) :
@@ -305,9 +328,15 @@ QVariantMap QHttpServerRequest::headers() const
     return ret;
 }
 
+QIODevice* QHttpServerRequest::bodyDevice() const
+{
+    return d->bodyDevice;
+}
+
+
 QByteArray QHttpServerRequest::body() const
 {
-    return d->body;
+    return d->bodyDevice->readAll();
 }
 
 QHostAddress QHttpServerRequest::remoteAddress() const
