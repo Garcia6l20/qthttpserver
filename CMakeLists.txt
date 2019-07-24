@@ -52,4 +52,7 @@ add_library(Qt5::HttpServer ALIAS ${PROJECT_NAME})
 execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${PROJECT_SOURCE_DIR}/src/httpserver ${PROJECT_BINARY_DIR}/QtHttpServer)
 execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${PROJECT_SOURCE_DIR}/src/httpserver ${PROJECT_BINARY_DIR}/private)
 
-add_subdirectory(tests)
+option(QTHTTPSERVER_TESTS_EN "Qt http server test enabled" OFF)
+if (QTHTTPSERVER_TESTS_EN)
+    add_subdirectory(tests)
+endif()
