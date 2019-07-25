@@ -127,6 +127,8 @@ private slots:
     void routeDelete_data();
     void routeDelete();
     void routeExtraHeaders();
+    void routeDirectUpload_data();
+    void routeDirectUpload();
     void invalidRouterArguments();
     void checkRouteLambdaCapture();
 
@@ -143,7 +145,7 @@ private:
 struct CustomArg {
     int data = 10;
 
-    CustomArg() {} ;
+    CustomArg() {}
     CustomArg(const QString &urlArg) : data(urlArg.toInt()) {}
 };
 
@@ -271,6 +273,12 @@ void tst_QHttpServer::initTestCase()
         writeChunk("part 1 of the message, ");
         writeChunk("part 2 of the message");
         writeChunk("");
+    });
+
+    httpserver.route<DirectFileAccessRouterRule>("/direct-upload/<arg>", [] (const QString& filename, const QHttpServerRequest& request) {
+        request.bodyDevice()->close(); // need to close the device before the request is being destroyed
+        qDebug() << filename << "uploaded !";
+        return QHttpServerResponse("text/plain", "ok", QHttpServerResponse::StatusCode::Ok);
     });
 
     httpserver.route("/extra-headers", [] () {
@@ -776,6 +784,61 @@ void tst_QHttpServer::routeExtraHeaders()
     QCOMPARE(reply->header(QNetworkRequest::ContentTypeHeader), "application/x-empty");
     QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 200);
     QCOMPARE(reply->header(QNetworkRequest::ServerHeader), "test server");
+}
+
+
+void tst_QHttpServer::routeDirectUpload_data()
+{
+    QTest::addColumn<QString>("url");
+    QTest::addColumn<int>("code");
+    QTest::addColumn<QString>("type");
+    QTest::addColumn<QString>("data");
+    QTest::addColumn<QString>("filename");
+
+    QTest::addRow("post, short")
+        << "/direct-upload"
+        << 200
+        << "text/plain"
+        << "Hello QHttpServer !!!"
+        << "direct-upload-short.txt";
+
+    QString body;
+    for (int i = 0; i < 10000; i++)
+        body.append(QString::number(i));
+
+    QTest::addRow("post - huge body")
+        << "/direct-upload"
+        << 200
+        << "text/plain"
+        << body
+        << "direct-upload-huge.txt";
+}
+
+void tst_QHttpServer::routeDirectUpload()
+{
+    QFETCH(QString, url);
+    QFETCH(int, code);
+    QFETCH(QString, type);
+    QFETCH(QString, data);
+    QFETCH(QString, filename);
+
+    QNetworkAccessManager networkAccessManager;
+    QNetworkRequest request(QUrl(urlBase.arg(url) + "/" + filename));
+    if (data.size())
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "text/html");
+
+    auto reply = networkAccessManager.post(request, data.toUtf8());
+
+    QTRY_VERIFY(reply->isFinished());
+
+    QCOMPARE(reply->header(QNetworkRequest::ContentTypeHeader), type);
+    QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), code);
+
+    QFile uploaded_file(filename);
+    uploaded_file.open(QIODevice::ReadOnly);
+    QCOMPARE(data, uploaded_file.readAll());
+    uploaded_file.close();
+    uploaded_file.remove();
 }
 
 struct CustomType {

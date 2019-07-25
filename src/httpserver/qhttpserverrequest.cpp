@@ -119,7 +119,7 @@ bool QHttpServerRequestPrivate::parse(QIODevice *socket)
                                                 fragment.constData(),
                                                 size_t(fragment.size()));
         if (int(parsed) < fragment.size()) {
-            qCDebug(lc, "Parse error: %d", httpParser.http_errno);
+            qCDebug(lc, "Parse error: %s", http_errno_description(static_cast<http_errno>(httpParser.http_errno)));
             return false;
         }
     }
