@@ -31,6 +31,7 @@
 
 #include <QtHttpServer/qhttpserverrequest.h>
 #include <QtHttpServer/qhttpserverresponder.h>
+#include <QtHttpServer/qhttpserverresponse.h>
 #include <private/qabstracthttpserver_p.h>
 #include <private/qhttpserverrequest_p.h>
 
@@ -88,8 +89,16 @@ void QAbstractHttpServerPrivate::handleReadyRead(QTcpSocket *socket,
         request->d->clear();
 
     if (!request->d->parse(socket)) {
+        auto responder = server->makeResponder(*request, socket);
+        responder.write(QHttpServerResponse::StatusCode::InternalServerError);
         socket->disconnect();
         return;
+    }
+
+    if (request->headers().contains("Expect") &&
+        request->headers()["Expect"] == "100-continue") {
+        auto responder = server->makeResponder(*request, socket);
+        responder.write(QHttpServerResponse::StatusCode::Continue);
     }
 
     if (!request->d->httpParser.upgrade &&
@@ -125,8 +134,14 @@ void QAbstractHttpServerPrivate::handleReadyRead(QTcpSocket *socket,
     }
 
     socket->commitTransaction();
-    if (!q->handleRequest(*request, socket))
-        Q_EMIT q->missingHandler(*request, socket);
+    try {
+        if (!q->handleRequest(*request, socket))
+            Q_EMIT q->missingHandler(*request, socket);
+    } catch(...) {
+        auto responder = server->makeResponder(*request, socket);
+        responder.write(QHttpServerResponse::StatusCode::InternalServerError);
+        throw;
+    }
 }
 
 QIODevice* QAbstractHttpServer::createBodyDevice(const QHttpServerRequest& /*request*/) {
