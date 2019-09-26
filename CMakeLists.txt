@@ -29,6 +29,7 @@ add_library(${PROJECT_NAME} STATIC
     src/httpserver/qhttpserverrouterrule_p.h
     src/httpserver/qhttpserverrouterviewtraits.h
     src/httpserver/qhttpserverliterals_p.h
+    src/httpserver/qsslserver.h
 
     src/httpserver/qabstracthttpserver.cpp
     src/httpserver/qhttpserver.cpp
@@ -38,6 +39,7 @@ add_library(${PROJECT_NAME} STATIC
     src/httpserver/qhttpserverrouter.cpp
     src/httpserver/qhttpserverrouterrule.cpp
     src/httpserver/qhttpserverliterals.cpp
+    src/httpserver/qsslserver.cpp
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC Qt5::Core Qt5::Network)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_BINARY_DIR})

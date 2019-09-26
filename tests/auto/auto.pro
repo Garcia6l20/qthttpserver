@@ -6,4 +6,5 @@ SUBDIRS = \
     qhttpserver \
     qhttpserverresponder \
     qhttpserverrouter \
-    qhttpserverresponse
+    qhttpserverresponse \
+    qhttpsserver

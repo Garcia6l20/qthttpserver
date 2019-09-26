@@ -47,7 +47,8 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcHttpServer, "qt.httpserver")
 
-QAbstractHttpServerPrivate::QAbstractHttpServerPrivate()
+QAbstractHttpServerPrivate::QAbstractHttpServerPrivate():
+    sslProtocol(QSsl::UnknownProtocol)
 {
 }
 
@@ -148,7 +149,17 @@ QAbstractHttpServer::QAbstractHttpServer(QAbstractHttpServerPrivate &dd, QObject
 */
 int QAbstractHttpServer::listen(const QHostAddress &address, quint16 port)
 {
-    auto tcpServer = new QTcpServer(this);
+    Q_D(QAbstractHttpServer);
+    QTcpServer* tcpServer = nullptr;
+    if (d->sslProtocol == QSsl::UnknownProtocol) {
+        tcpServer = new QTcpServer(this);
+    } else {
+        QSslServer *sslServer = new QSslServer(this);
+        sslServer->setLocalCertificate(d->sslCertificate);
+        sslServer->setPrivateKey(d->sslPrivateKey);
+        sslServer->setSslProtocol(d->sslProtocol);
+        tcpServer = sslServer;
+    }
     const auto listening = tcpServer->listen(address, port);
     if (listening) {
         bind(tcpServer);
@@ -252,6 +263,14 @@ QHttpServerResponder QAbstractHttpServer::makeResponder(const QHttpServerRequest
                                                         QTcpSocket *socket)
 {
     return QHttpServerResponder(request, socket);
+}
+
+void QAbstractHttpServer::sslSetup(const QSslCertificate &certificate, const QSslKey &privateKey, QSsl::SslProtocol protocol)
+{
+    Q_D(QAbstractHttpServer);
+    d->sslCertificate = certificate;
+    d->sslPrivateKey = privateKey;
+    d->sslProtocol = protocol;
 }
 
 QT_END_NAMESPACE

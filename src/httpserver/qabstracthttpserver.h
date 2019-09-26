@@ -33,6 +33,7 @@
 #include <QtCore/qobject.h>
 
 #include <QtHttpServer/qthttpserverglobal.h>
+#include <QtHttpServer/qsslserver.h>
 
 #include <QtNetwork/qhostaddress.h>
 
@@ -56,6 +57,8 @@ public:
 
     void bind(QTcpServer *server = nullptr);
     QVector<QTcpServer *> servers() const;
+
+    void sslSetup(const QSslCertificate &certificate, const QSslKey &privateKey, QSsl::SslProtocol protocol = QSsl::TlsV1_3OrLater);
 
 Q_SIGNALS:
     void missingHandler(const QHttpServerRequest &request, QTcpSocket *socket);

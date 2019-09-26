@@ -22,7 +22,8 @@ HEADERS += \
     qhttpserverrouter_p.h \
     qhttpserverrouterrule.h \
     qhttpserverrouterrule_p.h \
-    qhttpserverrouterviewtraits.h
+    qhttpserverrouterviewtraits.h \
+    qsslserver.h
 
 SOURCES += \
     qabstracthttpserver.cpp \
@@ -32,7 +33,8 @@ SOURCES += \
     qhttpserverresponder.cpp \
     qhttpserverresponse.cpp \
     qhttpserverrouter.cpp \
-    qhttpserverrouterrule.cpp
+    qhttpserverrouterrule.cpp \
+    qsslserver.cpp
 
 include(../3rdparty/http-parser.pri)
 

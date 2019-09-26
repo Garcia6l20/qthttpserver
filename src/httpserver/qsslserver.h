@@ -27,55 +27,34 @@
 **
 ****************************************************************************/
 
-#ifndef QABSTRACTHTTPSERVER_P_H
-#define QABSTRACTHTTPSERVER_P_H
+#ifndef QSSLSERVER_H
+#define QSSLSERVER_H
 
-//
-//  W A R N I N G
-//  -------------
-//
-// This file is not part of the Qt API.  It exists for the convenience
-// of QHttpServer. This header file may change from version to
-// version without notice, or even be removed.
-//
-// We mean it.
+#include <QSslCertificate>
+#include <QSslKey>
+#include <QTcpServer>
 
-#include <QtHttpServer/qabstracthttpserver.h>
-#include <QtHttpServer/qthttpserverglobal.h>
-
-#include <private/qobject_p.h>
-
-#if defined(QT_WEBSOCKETS_LIB)
-#include <QtWebSockets/qwebsocketserver.h>
-#endif // defined(QT_WEBSOCKETS_LIB)
-
-QT_BEGIN_NAMESPACE
-
-class QHttpServerRequest;
-
-class Q_HTTPSERVER_EXPORT QAbstractHttpServerPrivate: public QObjectPrivate
+class QSslServer : public QTcpServer
 {
-    Q_DECLARE_PUBLIC(QAbstractHttpServer)
-
+    Q_OBJECT
 public:
-    QAbstractHttpServerPrivate();
+    QSslServer(QObject *parent = nullptr);
 
-#if defined(QT_WEBSOCKETS_LIB)
-    QWebSocketServer websocketServer {
-        QLatin1String("QtHttpServer"),
-        QWebSocketServer::NonSecureMode
-    };
-#endif // defined(QT_WEBSOCKETS_LIB)
+    void setLocalCertificate(const QSslCertificate &certificate);
+    bool setLocalCertificate(const QString &path, QSsl::EncodingFormat format = QSsl::Pem);
 
-    void handleNewConnections();
-    void handleReadyRead(QTcpSocket *socket,
-                         QHttpServerRequest *request);
+    void setPrivateKey(const QSslKey &key);
+    bool setPrivateKey(const QString &fileName, QSsl::KeyAlgorithm algorithm = QSsl::Rsa, QSsl::EncodingFormat format = QSsl::Pem, const QByteArray &passPhrase = QByteArray());
 
-    QSslKey sslPrivateKey;
-    QSslCertificate sslCertificate;
-    QSsl::SslProtocol sslProtocol;
+    void setSslProtocol(QSsl::SslProtocol protocol);
+signals:
+    void sslErrors(const QList<QSslError> &errors);
+protected:
+    void incomingConnection(qintptr handle) override final;
+private:
+    QSslCertificate m_certificate;
+    QSslKey m_privateKey;
+    QSsl::SslProtocol m_protocol;
 };
 
-QT_END_NAMESPACE
-
-#endif // QABSTRACTHTTPSERVER_P_H
+#endif // QSSLSERVER_HPP

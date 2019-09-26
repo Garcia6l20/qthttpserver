@@ -5,6 +5,7 @@ link_libraries(Qt5::Test Qt5::HttpServer)
 
 add_subdirectory(qabstracthttpserver)
 add_subdirectory(qhttpserver)
+add_subdirectory(qhttpsserver)
 add_subdirectory(qhttpserverresponder)
 add_subdirectory(qhttpserverresponse)
 add_subdirectory(qhttpserverrouter)
