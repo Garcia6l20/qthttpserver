@@ -29,8 +29,10 @@
 
 #include "qhttpserverrequest_p.h"
 
+#include <QtHttpServer/qabstracthttpserver.h>
 #include <QtHttpServer/qhttpserverrequest.h>
 
+#include <QtCore/qdatastream.h>
 #include <QtCore/qdebug.h>
 #include <QtCore/qloggingcategory.h>
 #include <QtNetwork/qtcpsocket.h>
@@ -78,10 +80,22 @@ http_parser_settings QHttpServerRequestPrivate::httpParserSettings {
     &QHttpServerRequestPrivate::onChunkComplete
 };
 
-QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteAddress)
-    : remoteAddress(remoteAddress)
+QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteAddress, QAbstractHttpServer* server, QHttpServerRequest* request)
+    : bodyDevice(nullptr),
+      remoteAddress(remoteAddress),
+      server(server),
+      request(request)
 {
     httpParser.data = this;
+}
+
+QHttpServerRequestPrivate::~QHttpServerRequestPrivate() {
+    if (bodyDevice != nullptr) {
+        if (bodyDevice->isOpen()) {
+            bodyDevice->close();
+        }
+        bodyDevice->deleteLater();
+    }
 }
 
 QByteArray QHttpServerRequestPrivate::header(const QByteArray &key) const
@@ -105,7 +119,7 @@ bool QHttpServerRequestPrivate::parse(QIODevice *socket)
                                                 fragment.constData(),
                                                 size_t(fragment.size()));
         if (int(parsed) < fragment.size()) {
-            qCDebug(lc, "Parse error: %d", httpParser.http_errno);
+            qCDebug(lc, "Parse error: %s", http_errno_description(static_cast<http_errno>(httpParser.http_errno)));
             return false;
         }
     }
@@ -122,7 +136,9 @@ void QHttpServerRequestPrivate::clear()
     url.clear();
     lastHeader.clear();
     headers.clear();
-    body.clear();
+    if (bodyDevice && bodyDevice->isOpen()) {
+        bodyDevice->close();
+    }
 }
 
 bool QHttpServerRequestPrivate::parseUrl(const char *at, size_t length, bool connect, QUrl *url)
@@ -218,20 +234,26 @@ int QHttpServerRequestPrivate::onBody(http_parser *httpParser, const char *at, s
     qCDebug(lc) << httpParser << QString::fromUtf8(at, int(length));
     auto i = instance(httpParser);
     i->state = State::OnBody;
-    if (i->body.isEmpty()) {
-        i->body.reserve(
-                static_cast<int>(httpParser->content_length) +
-                static_cast<int>(length));
+    if (i->bodyDevice == nullptr) {
+        i->bodyDevice = i->server->createBodyDevice(*i->request);
+        if (i->bodyDevice == nullptr) {
+            return -1;
+        }
     }
-
-    i->body.append(at, int(length));
+    if (!i->bodyDevice->isOpen()) {
+        i->bodyDevice->open(QIODevice::ReadWrite);
+    }
+    if(i->bodyDevice->write(at, static_cast<qint64>(length)) < 0) {
+        qCCritical(lc, "Failed to write data on body device");
+    }
     return 0;
 }
 
 int QHttpServerRequestPrivate::onMessageComplete(http_parser *httpParser)
 {
     qCDebug(lc) << httpParser;
-    instance(httpParser)->state = State::OnMessageComplete;
+    auto i = instance(httpParser);
+    i->state = State::OnMessageComplete;
     return 0;
 }
 
@@ -249,8 +271,8 @@ int QHttpServerRequestPrivate::onChunkComplete(http_parser *httpParser)
     return 0;
 }
 
-QHttpServerRequest::QHttpServerRequest(const QHostAddress &remoteAddress) :
-    d(new QHttpServerRequestPrivate(remoteAddress))
+QHttpServerRequest::QHttpServerRequest(const QHostAddress &remoteAddress, QAbstractHttpServer* server) :
+    d(new QHttpServerRequestPrivate(remoteAddress, server, this))
 {}
 
 QHttpServerRequest::QHttpServerRequest(const QHttpServerRequest &other) :
@@ -305,9 +327,27 @@ QVariantMap QHttpServerRequest::headers() const
     return ret;
 }
 
+QIODevice* QHttpServerRequest::bodyDevice() const
+{
+    return d->bodyDevice;
+}
+
+
 QByteArray QHttpServerRequest::body() const
 {
-    return d->body;
+    if (d->bodyDevice == nullptr) {
+        qCWarning(lc, "No body device, maybe no body have been received...");
+        return QByteArray();
+    } else if (!d->bodyDevice->isReadable()) {
+        qCWarning(lc, "Body device is not readable...");
+        return QByteArray();
+    } else {
+        qint64 pos = d->bodyDevice->pos();
+        d->bodyDevice->seek(0);
+        QByteArray&& result = d->bodyDevice->readAll();
+        d->bodyDevice->seek(pos); // back to current pos
+        return std::move(result);
+    }
 }
 
 QHostAddress QHttpServerRequest::remoteAddress() const

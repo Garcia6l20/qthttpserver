@@ -36,6 +36,7 @@
 
 #include <QtCore/qloggingcategory.h>
 #include <QtCore/qmetaobject.h>
+#include <QtCore/qbuffer.h>
 #include <QtNetwork/qtcpserver.h>
 #include <QtNetwork/qtcpsocket.h>
 
@@ -47,7 +48,8 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcHttpServer, "qt.httpserver")
 
-QAbstractHttpServerPrivate::QAbstractHttpServerPrivate()
+QAbstractHttpServerPrivate::QAbstractHttpServerPrivate(QAbstractHttpServer* server):
+    server(server)
 {
 }
 
@@ -57,7 +59,7 @@ void QAbstractHttpServerPrivate::handleNewConnections()
     auto tcpServer = qobject_cast<QTcpServer *>(q->sender());
     Q_ASSERT(tcpServer);
     while (auto socket = tcpServer->nextPendingConnection()) {
-        auto request = new QHttpServerRequest(socket->peerAddress());  // TODO own tcp server could pre-allocate it
+        auto request = new QHttpServerRequest(socket->peerAddress(), this->server);  // TODO own tcp server could pre-allocate it
         http_parser_init(&request->d->httpParser, HTTP_REQUEST);
 
         QObject::connect(socket, &QTcpSocket::readyRead, q_ptr,
@@ -127,8 +129,12 @@ void QAbstractHttpServerPrivate::handleReadyRead(QTcpSocket *socket,
         Q_EMIT q->missingHandler(*request, socket);
 }
 
+QIODevice* QAbstractHttpServer::createBodyDevice(const QHttpServerRequest& /*request*/) {
+    return new QBuffer();
+}
+
 QAbstractHttpServer::QAbstractHttpServer(QObject *parent)
-    : QAbstractHttpServer(*new QAbstractHttpServerPrivate, parent)
+    : QAbstractHttpServer(*new QAbstractHttpServerPrivate(this), parent)
 {}
 
 QAbstractHttpServer::QAbstractHttpServer(QAbstractHttpServerPrivate &dd, QObject *parent)

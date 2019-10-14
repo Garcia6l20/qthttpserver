@@ -56,7 +56,7 @@ class QHttpServerPrivate: public QAbstractHttpServerPrivate
     Q_DECLARE_PUBLIC(QHttpServer)
 
 public:
-    QHttpServerPrivate() = default;
+    QHttpServerPrivate(QAbstractHttpServer* server);
 
     QHttpServerRouter router;
 };

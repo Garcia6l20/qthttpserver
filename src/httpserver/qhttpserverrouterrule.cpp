@@ -37,6 +37,7 @@
 #include <QtCore/qregularexpression.h>
 #include <QtCore/qdebug.h>
 
+#include <QtCore/qbuffer.h>
 #include <QtCore/qstringbuilder.h>
 
 QT_BEGIN_NAMESPACE
@@ -220,6 +221,13 @@ bool QHttpServerRouterRule::matches(const QHttpServerRequest &request,
 
     *match = d->pathRegexp.match(request.url().path());
     return (match->hasMatch() && d->pathRegexp.captureCount() == match->lastCapturedIndex());
+}
+
+/*!
+    This virtual function is called by QHttpServer::createBodyDevice to get the device associated to this rule.
+ */
+QIODevice* QHttpServerRouterRule::createBodyDevice(const QHttpServerRequest &/*request*/, const QRegularExpressionMatch &/*match*/) {
+    return new QBuffer();
 }
 
 /*!

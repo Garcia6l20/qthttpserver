@@ -75,6 +75,9 @@ public:
                 std::forward<Args>(args)...);
     }
 
+protected:
+    QIODevice* createBodyDevice(const QHttpServerRequest& request) override;
+
 private:
     template<typename Rule, typename ViewHandler, typename ViewTraits, int ... I, typename ... Args>
     bool routeHelper(QtPrivate::IndexesList<I...>, Args &&... args)
