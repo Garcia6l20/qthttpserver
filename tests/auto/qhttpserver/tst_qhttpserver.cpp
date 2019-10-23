@@ -113,6 +113,22 @@ private:
     const char * m_queryKey;
 };
 
+class DirectFileAccessRouterRule : public QHttpServerRouterRule
+{
+public:
+    DirectFileAccessRouterRule(const QString &pathPattern,
+                               RouterHandler &&routerHandler)
+        : QHttpServerRouterRule(pathPattern, std::forward<RouterHandler>(routerHandler))
+    {
+    }
+
+    QIODevice* createBodyDevice(const QHttpServerRequest &/*request*/, const QRegularExpressionMatch& match) override
+    {
+        QString filename = match.captured(1);
+        return new QFile(filename);
+    }
+};
+
 class tst_QHttpServer final : public QObject
 {
     Q_OBJECT
@@ -276,7 +292,8 @@ void tst_QHttpServer::initTestCase()
         writeChunk("");
     });
 
-    httpserver.route<DirectFileAccessRouterRule>("/direct-upload/<arg>", [] (const QString& filename, const QHttpServerRequest& request) {
+    httpserver.route<DirectFileAccessRouterRule>("/direct-upload/<arg>",
+        [] (const QString& filename, const QHttpServerRequest& request) {
         request.bodyDevice()->close(); // need to close the device before the request is being destroyed
         qDebug() << filename << "uploaded !";
         return QHttpServerResponse("text/plain", "ok", QHttpServerResponse::StatusCode::Ok);
