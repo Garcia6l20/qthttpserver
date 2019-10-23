@@ -136,8 +136,11 @@ void QHttpServerRequestPrivate::clear()
     url.clear();
     lastHeader.clear();
     headers.clear();
-    if (bodyDevice && bodyDevice->isOpen()) {
-        bodyDevice->close();
+    if (bodyDevice) {
+        if (bodyDevice->isOpen())
+            bodyDevice->close();
+        bodyDevice->deleteLater();
+        bodyDevice = nullptr;
     }
 }
 
