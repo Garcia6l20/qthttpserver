@@ -140,6 +140,7 @@ private:
     QString urlBase;
     QString sslUrlBase;
     QNetworkAccessManager networkAccessManager;
+    QSslConfiguration sslConfig;
 };
 
 struct CustomArg {
@@ -319,17 +320,28 @@ void tst_QHttpServer::initTestCase()
     expectedSslErrors.append(QSslError(QSslError::HostNameMismatch,
                                        QSslCertificate(g_certificate)));
 
+#if QT_CONFIG(mbedtls)
+    // test certificate is too short for mbedtls (must be at least 2048 bits)
+    expectedSslErrors.append(QSslError(QSslError::InvalidCaCertificate,
+                                       QSslCertificate(g_certificate)));
+
+    sslConfig.setCaCertificates({QSslCertificate(g_certificate)});
+
+    httpserver.ignoreSslErrors(expectedSslErrors);
+#endif
+
     connect(&networkAccessManager, &QNetworkAccessManager::sslErrors,
             [expectedSslErrors](QNetworkReply *reply,
                                 const QList<QSslError> &errors) {
+        QList<QSslError> unexpectedErrors;
         for (const auto &error: errors) {
-            for (const auto &expectedError: expectedSslErrors) {
-                if (error.error() != expectedError.error() ||
-                    error.certificate() != expectedError.certificate()) {
-                    qCritical() << "Got unexpected ssl error:"
-                                << error << error.certificate();
-                }
+            if (!expectedSslErrors.contains(error)) {
+                unexpectedErrors.append(error);
             }
+        }
+        for (const auto &error: unexpectedErrors) {
+            qCritical() << "Got unexpected ssl error:"
+                        << error << error.certificate();
         }
         reply->ignoreSslErrors(expectedSslErrors);
     });
@@ -554,7 +566,9 @@ void tst_QHttpServer::routeGet()
     QFETCH(QString, type);
     QFETCH(QString, body);
 
-    auto reply = networkAccessManager.get(QNetworkRequest(url));
+    QNetworkRequest req(url);
+    req.setSslConfiguration(sslConfig);
+    auto reply = networkAccessManager.get(req);
 
     QTRY_VERIFY(reply->isFinished());
 
@@ -704,13 +718,14 @@ void tst_QHttpServer::routePost()
     QFETCH(QString, data);
     QFETCH(QString, body);
 
-    QNetworkRequest request(url);
+    QNetworkRequest req(url);
+    req.setSslConfiguration(sslConfig);
     if (data.size()) {
-        request.setHeader(QNetworkRequest::ContentTypeHeader,
+        req.setHeader(QNetworkRequest::ContentTypeHeader,
                           QHttpServerLiterals::contentTypeTextHtml());
     }
 
-    auto reply = networkAccessManager.post(request, data.toUtf8());
+    auto reply = networkAccessManager.post(req, data.toUtf8());
 
     QTRY_VERIFY(reply->isFinished());
 
@@ -796,7 +811,7 @@ void tst_QHttpServer::routeDirectUpload_data()
     QTest::addColumn<QString>("filename");
 
     QTest::addRow("post, short")
-        << "/direct-upload"
+        << urlBase.arg("/direct-upload")
         << 200
         << "text/plain"
         << "Hello QHttpServer !!!"
@@ -807,11 +822,21 @@ void tst_QHttpServer::routeDirectUpload_data()
         body.append(QString::number(i));
 
     QTest::addRow("post - huge body")
-        << "/direct-upload"
+        << urlBase.arg("/direct-upload")
         << 200
         << "text/plain"
         << body
         << "direct-upload-huge.txt";
+
+#if QT_CONFIG(ssl)
+
+    QTest::addRow("post - huge body - ssl")
+        << sslUrlBase.arg("/direct-upload")
+        << 200
+        << "text/plain"
+        << body
+        << "direct-upload-huge-ssl.txt";
+#endif
 }
 
 void tst_QHttpServer::routeDirectUpload()
@@ -822,10 +847,15 @@ void tst_QHttpServer::routeDirectUpload()
     QFETCH(QString, data);
     QFETCH(QString, filename);
 
-    QNetworkAccessManager networkAccessManager;
-    QNetworkRequest request(QUrl(urlBase.arg(url) + "/" + filename));
+    QNetworkRequest request(url + "/" + filename);
     if (data.size())
         request.setHeader(QNetworkRequest::ContentTypeHeader, "text/html");
+
+    if(QFileInfo::exists(filename)) {
+        QFile::remove(filename);
+    }
+
+    request.setSslConfiguration(sslConfig);
 
     auto reply = networkAccessManager.post(request, data.toUtf8());
 
@@ -836,9 +866,11 @@ void tst_QHttpServer::routeDirectUpload()
 
     QFile uploaded_file(filename);
     uploaded_file.open(QIODevice::ReadOnly);
-    QCOMPARE(data, uploaded_file.readAll());
+    auto dataWritten = uploaded_file.readAll();
+    QCOMPARE(dataWritten, data);
     uploaded_file.close();
     uploaded_file.remove();
+    reply->deleteLater();
 }
 
 struct CustomType {

@@ -54,8 +54,6 @@ void QSslServer::incomingConnection(qintptr handle)
     QSslSocket *socket = new QSslSocket(this);
     connect(socket, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
             [this, socket](const QList<QSslError> &errors) {
-        for (auto &err: errors)
-            qCCritical(lcSS) << err;
         Q_EMIT sslErrors(socket, errors);
     });
     socket->setSocketDescriptor(handle);

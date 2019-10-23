@@ -155,8 +155,28 @@ int QAbstractHttpServer::listen(const QHostAddress &address, quint16 port)
 {
 #if QT_CONFIG(ssl)
     Q_D(QAbstractHttpServer);
-    QTcpServer *tcpServer = d->sslEnabled ? new QSslServer(d->sslConfiguration, this)
-                                          : new QTcpServer(this);
+    QTcpServer *tcpServer;
+    if (d->sslEnabled)
+    {
+        QSslServer* sslServer = new QSslServer(d->sslConfiguration, this);
+        connect(sslServer, &QSslServer::sslErrors, [this] (QSslSocket* socket, const QList<QSslError> errors) {
+            Q_D(QAbstractHttpServer);
+            Q_EMIT sslErrors(errors);
+            if (d->ignoreAllSslErrors)
+            {
+                socket->ignoreSslErrors();
+            }
+            else if (!d->ignoreSslErrorList.empty())
+            {
+                socket->ignoreSslErrors(d->ignoreSslErrorList);
+            }
+        });
+        tcpServer = sslServer;
+    }
+    else
+    {
+        tcpServer = new QTcpServer(this);
+    }
 #else
     auto tcpServer = new QTcpServer(this);
 #endif
@@ -285,6 +305,18 @@ void QAbstractHttpServer::sslSetup(const QSslConfiguration &sslConfiguration)
     Q_D(QAbstractHttpServer);
     d->sslConfiguration = sslConfiguration;
     d->sslEnabled = true;
+}
+
+void QAbstractHttpServer::ignoreSslErrors()
+{
+    Q_D(QAbstractHttpServer);
+    d->ignoreAllSslErrors = true;
+}
+
+void QAbstractHttpServer::ignoreSslErrors(const QList<QSslError> &errors)
+{
+    Q_D(QAbstractHttpServer);
+    d->ignoreSslErrorList = errors;
 }
 #endif
 

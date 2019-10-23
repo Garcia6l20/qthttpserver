@@ -67,6 +67,10 @@ public:
     void sslSetup(const QSslCertificate &certificate, const QSslKey &privateKey,
                   QSsl::SslProtocol protocol = QSsl::SecureProtocols);
     void sslSetup(const QSslConfiguration &sslConfiguration);
+
+    Q_SIGNAL void sslErrors(QList<QSslError> errors);
+    void ignoreSslErrors();
+    void ignoreSslErrors(const QList<QSslError>& errors);
 #endif
 
 Q_SIGNALS:

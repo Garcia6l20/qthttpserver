@@ -73,7 +73,9 @@ public:
 
 #if QT_CONFIG(ssl)
     QSslConfiguration sslConfiguration;
+    QList<QSslError> ignoreSslErrorList;
     bool sslEnabled = false;
+    bool ignoreAllSslErrors = false;
 #endif
 };
 
