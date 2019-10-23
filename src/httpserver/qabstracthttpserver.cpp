@@ -48,8 +48,7 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcHttpServer, "qt.httpserver")
 
-QAbstractHttpServerPrivate::QAbstractHttpServerPrivate(QAbstractHttpServer* server):
-    server(server)
+QAbstractHttpServerPrivate::QAbstractHttpServerPrivate()
 {
 }
 
@@ -59,7 +58,7 @@ void QAbstractHttpServerPrivate::handleNewConnections()
     auto tcpServer = qobject_cast<QTcpServer *>(q->sender());
     Q_ASSERT(tcpServer);
     while (auto socket = tcpServer->nextPendingConnection()) {
-        auto request = new QHttpServerRequest(socket->peerAddress(), this->server);  // TODO own tcp server could pre-allocate it
+        auto request = new QHttpServerRequest(socket->peerAddress(), q);  // TODO own tcp server could pre-allocate it
         http_parser_init(&request->d->httpParser, HTTP_REQUEST);
 
         QObject::connect(socket, &QTcpSocket::readyRead, q_ptr,
@@ -134,7 +133,7 @@ QIODevice* QAbstractHttpServer::createBodyDevice(const QHttpServerRequest& /*req
 }
 
 QAbstractHttpServer::QAbstractHttpServer(QObject *parent)
-    : QAbstractHttpServer(*new QAbstractHttpServerPrivate(this), parent)
+    : QAbstractHttpServer(*new QAbstractHttpServerPrivate(), parent)
 {}
 
 QAbstractHttpServer::QAbstractHttpServer(QAbstractHttpServerPrivate &dd, QObject *parent)

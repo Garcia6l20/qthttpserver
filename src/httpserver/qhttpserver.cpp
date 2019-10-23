@@ -44,10 +44,6 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcHS, "qt.httpserver");
 
-QHttpServerPrivate::QHttpServerPrivate(QAbstractHttpServer* server):
-    QAbstractHttpServerPrivate(server)
-{}
-
 /*!
     \class QHttpServer
     \brief QHttpServer is a simplified API for QAbstractHttpServer and QHttpServerRouter.
@@ -65,7 +61,7 @@ QHttpServerPrivate::QHttpServerPrivate(QAbstractHttpServer* server):
 */
 
 QHttpServer::QHttpServer(QObject *parent)
-    : QAbstractHttpServer(*new QHttpServerPrivate(this), parent)
+    : QAbstractHttpServer(*new QHttpServerPrivate(), parent)
 {
     connect(this, &QAbstractHttpServer::missingHandler, this,
             [=] (const QHttpServerRequest &request, QTcpSocket *socket) {
