@@ -301,7 +301,7 @@ QVariantMap QHttpServerRequest::headers() const
 {
     QVariantMap ret;
     for (auto it = d->headers.cbegin(), end = d->headers.cend(); it != end; ++it)
-        ret.insert(it.value().first, it.value().second);
+        ret.insert(QString::fromUtf8(it.value().first), QString::fromUtf8(it.value().second));
     return ret;
 }
 
